@@ -26,7 +26,7 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-console.log('🏁 서버 초기화 시작 (PORT:', PORT, ')');
+console.log('🏁 서버 초기화 시작 (PORT:', PORT, ') - Ver. 2026.02.23.1');
 
 app.use(express.json({ limit: '10mb' }));
 app.use(cors());
@@ -691,7 +691,7 @@ app.use((req: Request, res: Response) => {
     if (req.path.startsWith('/api')) {
         return res.status(404).json({ error: 'API endpoint not found' });
     }
-    
+
     res.sendFile(path.join(distPath, 'index.html'), (err) => {
         if (err) {
             res.status(404).send('Frontend build (index.html) not found. Please check build logs.');
