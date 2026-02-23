@@ -1,0 +1,117 @@
+/* [project]/app/globals.css [app-client] (css) */
+@tailwind base;
+
+@tailwind components;
+
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --primary: #ff4d00;
+    --primary-glow: #ff4d0066;
+    --secondary: #0a192f;
+    --accent: #00d4ff;
+    --background: #050a18;
+    --surface: #ffffff0d;
+    --surface-solid: #112240;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --glass-border: #ffffff1a;
+    --glass-bg: #ffffff08;
+    --shadow-premium: 0 10px 30px -10px #020c1bb3;
+  }
+
+  body {
+    color: var(--text-primary);
+    font-family: var(--font-geist-sans), Inter, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background: radial-gradient(circle, #0a192f 0%, #050a18 100%);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+}
+
+@layer components {
+  .glass-card {
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-premium);
+    border-radius: 1.5rem;
+    transition: all .3s cubic-bezier(.4, 0, .2, 1);
+  }
+
+  .glass-card:hover {
+    border-color: #00d4ff4d;
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px -15px #00d4ff26;
+  }
+
+  .btn-rocket {
+    color: #fff;
+    box-shadow: 0 4px 15px var(--primary-glow);
+    background: linear-gradient(135deg, #ff4d00 0%, #ff8a00 100%);
+    border-radius: 9999px;
+    justify-content: center;
+    align-items: center;
+    gap: .5rem;
+    padding: .75rem 1.5rem;
+    font-weight: 700;
+    transition: all .3s;
+    display: inline-flex;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-rocket:hover {
+    box-shadow: 0 8px 25px var(--primary-glow);
+    transform: scale(1.05);
+  }
+
+  .btn-rocket:active {
+    transform: scale(.95);
+  }
+
+  .modern-input {
+    border: 1px solid var(--glass-border);
+    color: #fff;
+    background: #ffffff0d;
+    border-radius: .75rem;
+    width: 100%;
+    padding: .75rem 1rem;
+    transition: all .2s;
+  }
+
+  .modern-input:focus {
+    border-color: var(--accent);
+    background: #ffffff14;
+    outline: none;
+    box-shadow: 0 0 0 4px #00d4ff1a;
+  }
+
+  .text-gradient {
+    background: linear-gradient(to right, #ff4d00, #00d4ff);
+    -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/*# sourceMappingURL=app_globals_css_bad6b30c._.single.css.map*/

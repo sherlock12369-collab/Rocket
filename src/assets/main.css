@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@layer base {
+    :root {
+        --primary: #000000;
+        --samsung-blue: #1428A0;
+        --bg-main: #FFFFFF;
+        --bg-secondary: #F4F4F4;
+        --text-main: #000000;
+        --text-body: #363636;
+        --border-light: #EEEEEE;
+    }
+
+    body {
+        background-color: var(--bg-main);
+        color: var(--text-main);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+    }
+}
+
+@layer components {
+
+    /* Samsung Style Button - Pill shaped */
+    .btn-samsung {
+        @apply rounded-full px-8 py-3 font-bold transition-all duration-300 inline-flex items-center justify-center;
+    }
+
+    .btn-samsung-black {
+        @apply bg-black text-white hover:bg-zinc-800 active:scale-95;
+    }
+
+    .btn-samsung-outline {
+        @apply border border-black text-black hover:bg-black hover:text-white active:scale-95;
+    }
+
+    /* Minimalist Card */
+    .samsung-card {
+        @apply bg-white border border-slate-100 rounded-3xl p-8 transition-all duration-500 hover:shadow-2xl hover:shadow-slate-200/50;
+    }
+
+    /* Section Spacing */
+    .section-padding {
+        @apply py-20 lg:py-32;
+    }
+
+    .text-samsung-header {
+        @apply text-4xl lg:text-6xl font-black tracking-tighter leading-[1.1] mb-6;
+    }
+
+    .text-gradient {
+        background: linear-gradient(90deg, #000 0%, #555 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+}
+
+/* Vue Transition: 알림 배너 슬라이드 */
+.slide-down-enter-active,
+.slide-down-leave-active {
+    transition: all 0.35s ease;
+}
+.slide-down-enter-from,
+.slide-down-leave-to {
+    transform: translateY(-100%);
+    opacity: 0;
+}
