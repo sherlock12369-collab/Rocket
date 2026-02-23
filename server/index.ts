@@ -684,11 +684,16 @@ const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
 
 // Handle client-side routing
-// Express 5 compatibility: Use a named wildcard for catch-all
-app.get('/:path*', (req: Request, res: Response) => {
+// Express 5 compatibility: Use a catch-all middleware instead of problematic path patterns
+app.use((req: Request, res: Response) => {
+    // API 요청은 미들웨어를 통과했으므로 이미 처리되었거나 404여야 함
+    // 그 외 모든 요청(HTML5 History Mode)을 index.html로 리다이렉트
+    if (req.path.startsWith('/api')) {
+        return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    
     res.sendFile(path.join(distPath, 'index.html'), (err) => {
         if (err) {
-            // If index.html is missing (e.g. build failed), send a simple message instead of crashing
             res.status(404).send('Frontend build (index.html) not found. Please check build logs.');
         }
     });
