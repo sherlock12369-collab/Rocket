@@ -662,7 +662,7 @@ const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
 
 // Handle client-side routing: return index.html for any request that doesn't match an API route
-app.get('*', (req: Request, res: Response) => {
+app.get('/*', (req: Request, res: Response) => {
     res.sendFile(path.join(distPath, 'index.html'));
 });
 
