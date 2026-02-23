@@ -89,7 +89,16 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
         const token = jwt.sign({ id: user._id, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
-        res.json({ token, user: { id: user._id, name: user.name, role: user.role, pointBalance: user.pointBalance } });
+        res.json({
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                role: user.role,
+                pointBalance: user.pointBalance,
+                membershipTier: (user as any).membershipTier || 'normal'
+            }
+        });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -141,7 +150,13 @@ app.get('/api/me', authenticateToken, async (req: AuthRequest, res: Response) =>
         const user = await User.findById(req.user.id).select('-password');
         if (!user) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
         const orders = await Order.find({ userId: req.user.id }).sort({ createdAt: -1 });
-        res.json({ user, orders });
+        res.json({
+            user: {
+                ...user.toObject(),
+                membershipTier: (user as any).membershipTier || 'normal'
+            },
+            orders
+        });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -215,7 +230,7 @@ app.post('/api/orders/:id/request-return', authenticateToken, async (req: AuthRe
         order.status = 'return_requested';
         if (reason) (order as any).returnReason = reason;
         await order.save();
-        res.json({ message: '반납/반품 요청이 접수되었습니다. 지휘관의 확인 후 처리됩니다.' });
+        res.json({ message: '반납 요청이 접수되었습니다. 지휘관의 확인 후 처리됩니다.' });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

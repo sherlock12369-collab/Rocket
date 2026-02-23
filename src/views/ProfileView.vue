@@ -14,11 +14,11 @@ const getAuthHeaders = () => ({
 
 const statusLabel: Record<string, string> = {
   pending:          '승인 대기',
-  approved:         '배송 중',
-  fulfilled:        '배송 완료',
+  approved:         '보급 중',
+  fulfilled:        '보급 완료',
   rejected:         '반려됨',
-  return_requested: '반납/반품 요청 중',
-  returned:         '반납/반품 완료',
+  return_requested: '반납 요청 중',
+  returned:         '반납 완료',
 }
 const statusColor: Record<string, string> = {
   pending:          'bg-yellow-100 text-yellow-700',
