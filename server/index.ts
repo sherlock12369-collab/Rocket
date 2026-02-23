@@ -24,14 +24,19 @@ if (!process.env.MONGODB_URI) {
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || 'rocket-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+console.log('🏁 서버 초기화 시작 (PORT:', PORT, ')');
 
 app.use(express.json({ limit: '10mb' }));
 app.use(cors());
 
 mongoose.connect(process.env.MONGODB_URI!)
-    .then(() => console.log('✅ Connected to MongoDB Atlas'))
-    .catch((err: any) => console.error('MongoDB error:', err));
+    .then(() => console.log('✅ MongoDB 연결 성공 (Atlas)'))
+    .catch((err: any) => {
+        console.error('❌ MongoDB 연결 실패:', err.message);
+        process.exit(1);
+    });
 
 // ─── Auth Middleware ──────────────────────────────────────────
 interface AuthRequest extends Request {
@@ -657,15 +662,24 @@ app.get('/api/missions', async (req: Request, res: Response) => {
 });
 
 // ─── Static Files & Frontend Routing ─────────────────────────
-// Serve static files from the frontend build directory
+console.log('📂 정적 파일 서빙 설정 중...');
 const distPath = path.join(__dirname, '../dist');
+
+// Serve static files
 app.use(express.static(distPath));
 
-// Handle client-side routing: return index.html for any request that doesn't match an API route
-app.get('/*', (req: Request, res: Response) => {
-    res.sendFile(path.join(distPath, 'index.html'));
+// Handle client-side routing
+// Express 5 compatibility: Use a regex for catch-all
+app.get(/^(?!\/api).+/, (req: Request, res: Response) => {
+    res.sendFile(path.join(distPath, 'index.html'), (err) => {
+        if (err) {
+            // If index.html is missing (e.g. build failed), send a simple message instead of crashing
+            res.status(404).send('Frontend build (index.html) not found. Please check build logs.');
+        }
+    });
 });
 
+console.log('🚀 app.listen 호출 직전...');
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
     console.log('📅 대여 페널티 스케줄러 활성화 (매일 자정 Korea Standard Time)');
