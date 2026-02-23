@@ -669,8 +669,8 @@ const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
 
 // Handle client-side routing
-// Express 5 compatibility: Use a regex for catch-all
-app.get(/^(?!\/api).+/, (req: Request, res: Response) => {
+// Express 5 compatibility: Use a named wildcard for catch-all
+app.get('/:path*', (req: Request, res: Response) => {
     res.sendFile(path.join(distPath, 'index.html'), (err) => {
         if (err) {
             // If index.html is missing (e.g. build failed), send a simple message instead of crashing
