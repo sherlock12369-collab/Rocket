@@ -35,7 +35,12 @@ const fetchMyData = async () => {
     const res = await fetch('/api/me', { headers: { Authorization: `Bearer ${auth.token}` } })
     if (res.ok) {
       const data = await res.json()
-      auth.setAuth(auth.token, { ...auth.user, pointBalance: data.user.pointBalance })
+      // 데이터베이스의 최신 등급 정보를 스토어에 반영하여 ⭐ 아이콘 업데이트
+      auth.setAuth(auth.token, { 
+        ...auth.user, 
+        pointBalance: data.user.pointBalance,
+        membershipTier: data.user.membershipTier || 'normal'
+      })
       orders.value = data.orders
     }
   } catch (err) {
