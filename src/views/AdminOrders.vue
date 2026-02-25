@@ -93,8 +93,8 @@ onMounted(fetchOrders)
                   order.status === 'approved' ? '배송중' :
                   order.status === 'fulfilled' ? '배송완료' :
                   order.status === 'rejected' ? '반려' :
-                  order.status === 'return_requested' ? '반납/반품요청' :
-                  order.status === 'returned' ? '반납완료' : order.status
+                  order.status === 'return_requested' ? (order.items?.some((i: any) => i.type === 'rent') ? '반납요청' : '반품요청') :
+                  order.status === 'returned' ? (order.items?.some((i: any) => i.type === 'rent') ? '반납완료' : '반품완료') : order.status
                 }}
               </span>
             </td>
@@ -108,7 +108,9 @@ onMounted(fetchOrders)
                   {{ order.items?.some((i: any) => i.type === 'rent') ? '반납 승인' : '반품 승인' }}
                 </button>
                 <button v-if="order.status === 'return_requested'" @click="updateStatus(order._id, 'fulfilled')" class="text-[9px] font-black uppercase px-4 py-2 text-zinc-300 hover:text-red-500 border border-transparent hover:border-red-100 transition-all">반려</button>
-                <span v-if="order.status === 'returned' || order.status === 'rejected'" class="text-[10px] font-bold text-zinc-300 uppercase italic">Archive</span>
+                <span v-if="order.status === 'returned' || order.status === 'rejected'" class="text-[10px] font-bold text-zinc-300 uppercase italic">
+                  {{ order.status === 'rejected' ? 'Rejected' : (order.items?.some((i: any) => i.type === 'rent') ? 'Returned' : 'Refunded') }}
+                </span>
               </div>
             </td>
           </tr>
