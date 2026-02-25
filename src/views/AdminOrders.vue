@@ -72,8 +72,10 @@ onMounted(fetchOrders)
                <div class="font-bold text-zinc-800">{{ order.userId?.name || 'Unknown' }}</div>
                <div class="text-[9px] text-zinc-400 uppercase font-black">@{{ order.userId?.username }}</div>
             </td>
-            <td class="px-8 py-6 text-xs text-zinc-500 max-w-[200px] truncate">
-              {{ order.items?.map((i: any) => `${i.title}${i.type === 'rent' ? '(대여)' : ''}`).join(', ') }}
+            <td class="px-8 py-6 text-xs text-zinc-500">
+              <div v-for="(i, idx) in order.items" :key="idx" class="mb-1 last:mb-0">
+                • {{ i.title }}{{ i.type === 'rent' ? '(대여)' : '' }} x{{ i.quantity || 1 }}
+              </div>
             </td>
             <td class="px-8 py-6 font-black text-blue-700">{{ order.totalPrice.toLocaleString() }} P</td>
             <td class="px-8 py-6">

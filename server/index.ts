@@ -221,8 +221,8 @@ app.post('/api/orders', authenticateToken, async (req: AuthRequest, res: Respons
             discountApplied = true;
         }
 
-        // ⭐ Star 혜택: 배송비 면제 (일반 회원 = +50P)
-        const shippingFee = isStar ? 0 : 50;
+        // ⭐ Star 혜택 또는 1000P 이상 구매 시 배송비 면제 (일반 회원 = +50P)
+        const shippingFee = (isStar || basePrice >= 1000) ? 0 : 50;
         const finalPrice = basePrice + shippingFee;
 
         if (user.pointBalance < finalPrice) return res.status(400).json({ error: '포인트가 부족합니다.' });

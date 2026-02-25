@@ -117,8 +117,8 @@ const placeOrder = async () => {
                 {{ cart.shippingFee === 0 ? 'FREE ✨' : `${cart.shippingFee} P` }}
               </span>
             </div>
-            <div v-if="cart.shippingFee > 0" class="text-[10px] text-blue-500 font-medium">
-              💡 {{ (15 - cart.totalPrice) }} P 더 담으면 무료배송!
+            <div v-if="!cart.isFreeShipping" class="text-[10px] text-blue-500 font-medium">
+              💡 {{ cart.remainingForFree.toLocaleString() }} P 더 담으면 무료배송!
             </div>
             <div class="pt-4 border-t border-zinc-200 flex justify-between items-center">
               <span class="text-sm font-black uppercase tracking-widest">Total</span>

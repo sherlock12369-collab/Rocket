@@ -27,7 +27,15 @@ export const useCartStore = defineStore('cart', () => {
     const isStar = computed(() => (auth.user as any)?.membershipTier === 'star')
     const starDiscount = computed(() => (isStar.value && totalQty.value >= 5) ? Math.floor(totalPrice.value * 0.5) : 0)
     const discountedPrice = computed(() => totalPrice.value - starDiscount.value)
-    const shippingFee = computed(() => isStar.value ? 0 : (items.value.length === 0 ? 0 : 50))
+
+    const FREE_SHIPPING_THRESHOLD = 1000 // 1000P 이상 무료배송
+    const isFreeShipping = computed(() => isStar.value || discountedPrice.value >= FREE_SHIPPING_THRESHOLD)
+    const remainingForFree = computed(() => Math.max(0, FREE_SHIPPING_THRESHOLD - discountedPrice.value))
+
+    const shippingFee = computed(() => {
+        if (items.value.length === 0) return 0
+        return isFreeShipping.value ? 0 : 50
+    })
     const finalPrice = computed(() => discountedPrice.value + shippingFee.value)
 
     const addItem = (product: Omit<CartItem, 'quantity'>) => {
@@ -63,5 +71,9 @@ export const useCartStore = defineStore('cart', () => {
         saveCart()
     }
 
-    return { items, totalCount, totalPrice, totalQty, starDiscount, discountedPrice, shippingFee, finalPrice, isStar, addItem, increaseQty, decreaseQty, removeItem, clearCart }
+    return {
+        items, totalCount, totalPrice, totalQty, starDiscount, discountedPrice,
+        shippingFee, finalPrice, isStar, isFreeShipping, remainingForFree, FREE_SHIPPING_THRESHOLD,
+        addItem, increaseQty, decreaseQty, removeItem, clearCart
+    }
 })
