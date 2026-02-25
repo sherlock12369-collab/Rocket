@@ -96,6 +96,31 @@ const saveEdit = async () => {
   }
 }
 
+const quickAddStock = async (item: any) => {
+  try {
+    const res = await fetch(`/api/products/${item._id}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        title: item.title,
+        description: item.description,
+        price: item.price,
+        category: item.category,
+        stock: item.stock + 10,
+        type: item.type,
+        image: item.image
+      })
+    })
+    if (res.ok) {
+      await fetchProducts()
+    } else {
+      alert('재고 충전 실패')
+    }
+  } catch {
+    alert('서버 통신 오류')
+  }
+}
+
 // ─── New Product Form ─────────────────────────────────────────
 const newProduct = ref({
   title: '', description: '', price: 0, category: 'Toy', stock: 1, type: 'buy', image: ''
@@ -217,7 +242,14 @@ onMounted(fetchProducts)
             <td class="px-6 py-4 text-xs font-bold text-zinc-400 uppercase">{{ item.category }}</td>
             <td class="px-6 py-4 font-black">{{ item.price }} P</td>
             <td class="px-6 py-4">
-              <span :class="item.stock > 0 ? 'text-green-600 bg-green-50' : 'text-red-500 bg-red-50'" class="text-[10px] font-black uppercase px-2 py-1 rounded-full">{{ item.stock > 0 ? item.stock + ' 재고' : '품절' }}</span>
+              <div class="flex items-center gap-2">
+                <span :class="item.stock > 0 ? 'text-green-600 bg-green-50' : 'text-red-500 bg-red-50'" class="text-[10px] font-black uppercase px-2 py-1 rounded-full">
+                  {{ item.stock > 0 ? item.stock + ' 재고' : '품절' }}
+                </span>
+                <button v-if="item.stock <= 0" @click="quickAddStock(item)" class="text-[10px] font-black text-blue-500 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded-full transition-colors uppercase">
+                  +10 충전
+                </button>
+              </div>
             </td>
             <td class="px-6 py-4 text-right">
               <div class="flex justify-end items-center gap-3">
