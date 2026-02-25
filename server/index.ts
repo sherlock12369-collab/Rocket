@@ -26,7 +26,7 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-console.log('🏁 서버 초기화 시작 (PORT:', PORT, ') - Ver. 2026.02.23.1');
+console.log('🏁 서버 초기화 시작 (PORT:', PORT, ') - Ver. 2026.02.25.1');
 
 app.use(express.json({ limit: '10mb' }));
 app.use(cors());
@@ -35,8 +35,17 @@ mongoose.connect(process.env.MONGODB_URI!)
     .then(() => console.log('✅ MongoDB 연결 성공 (Atlas)'))
     .catch((err: any) => {
         console.error('❌ MongoDB 연결 실패:', err.message);
-        process.exit(1);
+        // Do not exit process, so we can still see health logs or serve static files
     });
+
+// Health Check for Render
+app.get('/api/health', (req: Request, res: Response) => {
+    res.json({
+        status: 'ok',
+        version: '2026.02.25.1',
+        db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+    });
+});
 
 // ─── Auth Middleware ──────────────────────────────────────────
 interface AuthRequest extends Request {
