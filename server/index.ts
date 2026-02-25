@@ -26,16 +26,36 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-console.log('🏁 서버 초기화 시작 (PORT:', PORT, ') - Ver. 2026.02.25.1');
+console.log('🏁 서버 초기화 시작 (PORT:', PORT, ') - Ver. 2026.02.25.2');
 
 app.use(express.json({ limit: '10mb' }));
 app.use(cors());
 
 mongoose.connect(process.env.MONGODB_URI!)
-    .then(() => console.log('✅ MongoDB 연결 성공 (Atlas)'))
+    .then(async () => {
+        console.log('✅ MongoDB 연결 성공 (Atlas)');
+        // Auto-seed admin if not exists
+        try {
+            const adminExists = await User.findOne({ username: 'sherlock' });
+            if (!adminExists) {
+                const hashedPassword = await bcrypt.hash('rocket1234', 10);
+                const admin = new User({
+                    username: 'sherlock',
+                    password: hashedPassword,
+                    plainPassword: 'rocket1234',
+                    name: 'Sherlock',
+                    role: 'admin',
+                    pointBalance: 999999
+                });
+                await admin.save();
+                console.log('🚀 [Auto-Seed] 관리자 계정(sherlock)이 생성되었습니다.');
+            }
+        } catch (err) {
+            console.error('❌ [Auto-Seed] 실패:', err);
+        }
+    })
     .catch((err: any) => {
         console.error('❌ MongoDB 연결 실패:', err.message);
-        // Do not exit process, so we can still see health logs or serve static files
     });
 
 // Health Check for Render
