@@ -28,7 +28,7 @@ const showModal = ref(false)
 const fetchProducts = async () => {
   loading.value = true
   try {
-    const res = await fetch('/api/products')
+    const res = await fetch('/api/admin/products', { headers: getAuthHeaders() })
     if (res.ok) products.value = await res.json()
   } catch (err) { console.error(err) }
   finally { loading.value = false }
@@ -210,6 +210,8 @@ onMounted(fetchProducts)
           <tr>
             <th class="px-6 py-4 text-[10px] font-black uppercase text-zinc-400 tracking-widest">Image</th>
             <th class="px-6 py-4 text-[10px] font-black uppercase text-zinc-400 tracking-widest">Product</th>
+            <th class="px-6 py-4 text-[10px] font-black uppercase text-zinc-400 tracking-widest">Seller</th>
+            <th class="px-6 py-4 text-[10px] font-black uppercase text-zinc-400 tracking-widest">Status</th>
             <th class="px-6 py-4 text-[10px] font-black uppercase text-zinc-400 tracking-widest">Type</th>
             <th class="px-6 py-4 text-[10px] font-black uppercase text-zinc-400 tracking-widest">Category</th>
             <th class="px-6 py-4 text-[10px] font-black uppercase text-zinc-400 tracking-widest">Price</th>
@@ -228,6 +230,16 @@ onMounted(fetchProducts)
             <td class="px-6 py-4">
               <div class="font-bold">{{ item.title }}</div>
               <div v-if="item.description" class="text-xs text-zinc-400 truncate max-w-[200px]">{{ item.description }}</div>
+            </td>
+            <td class="px-6 py-4">
+              <div class="text-[10px] font-bold" :class="item.sellerId ? 'text-blue-600' : 'text-zinc-400'">
+                {{ item.sellerId ? (item.sellerId.name || 'User Seller') : '🚀 System' }}
+              </div>
+            </td>
+            <td class="px-6 py-4">
+              <span :class="item.isApproved ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'" class="px-2 py-0.5 rounded text-[9px] font-black uppercase">
+                {{ item.isApproved ? 'Approved' : 'Pending' }}
+              </span>
             </td>
             <td class="px-6 py-4">
               <span
@@ -253,6 +265,7 @@ onMounted(fetchProducts)
             </td>
             <td class="px-6 py-4 text-right">
               <div class="flex justify-end items-center gap-3">
+                <button v-if="!item.isApproved" @click="editTarget = {...item, isApproved: true}; saveEdit()" class="text-[10px] font-black uppercase text-blue-600 hover:text-blue-800 transition-colors">승인하기</button>
                 <button @click="openEdit(item)" class="text-[10px] font-black uppercase text-zinc-400 hover:text-black transition-colors">수정</button>
                 <button @click="deleteProduct(item._id)" class="text-[10px] font-black uppercase text-zinc-300 hover:text-red-500 transition-colors">삭제</button>
               </div>
@@ -379,6 +392,11 @@ onMounted(fetchProducts)
                   <option value="rent">🔄 대여</option>
                 </select>
               </div>
+            </div>
+
+            <div class="space-y-1">
+              <label class="text-[10px] font-black uppercase text-zinc-400">판매 수수료율 (0.1 = 10%)</label>
+              <input v-model.number="editTarget.commissionRate" type="number" step="0.01" min="0" max="1" class="w-full px-4 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl focus:outline-none focus:border-black transition-colors" />
             </div>
 
             <div class="space-y-2">

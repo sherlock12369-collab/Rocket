@@ -35,6 +35,22 @@ const updateStatus = async (id: string, status: string) => {
   } catch { alert('서버 통신 오류') }
 }
 
+const updateItemStatus = async (orderId: string, itemId: string, status: string) => {
+  if (!confirm(`아이템 상태를 '${status}'(으)로 변경하시겠습니까?`)) return
+  try {
+    const res = await fetch(`/api/admin/orders/${orderId}/items/${itemId}/status`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ status })
+    })
+    const data = await res.json()
+    alert(data.message)
+    if (res.ok) fetchOrders()
+  } catch (err) {
+    alert('아이템 상태 업데이트 실패')
+  }
+}
+
 onMounted(fetchOrders)
 </script>
 
@@ -70,11 +86,27 @@ onMounted(fetchOrders)
             <td class="px-8 py-6 font-mono text-xs text-zinc-400">#{{ order._id.slice(-6) }}</td>
             <td class="px-8 py-6">
                <div class="font-bold text-zinc-800">{{ order.userId?.name || 'Unknown' }}</div>
-               <div class="text-[9px] text-zinc-400 uppercase font-black">@{{ order.userId?.username }}</div>
+               <div class="text-[9px] text-zinc-400 uppercase font-black mb-1">@{{ order.userId?.username }}</div>
+               <div v-if="order.deliveryAddress" class="text-[10px] bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded-md inline-block font-medium">
+                 📍 {{ order.deliveryAddress }}
+               </div>
             </td>
             <td class="px-8 py-6 text-xs text-zinc-500">
-              <div v-for="(i, idx) in order.items" :key="idx" class="mb-1 last:mb-0">
-                • {{ i.title }}{{ i.type === 'rent' ? '(대여)' : '' }} x{{ i.quantity || 1 }}
+              <div v-for="(i, idx) in order.items" :key="idx" class="mb-3 p-3 bg-zinc-50 rounded-xl last:mb-0">
+                <div class="flex justify-between items-start mb-2">
+                  <div class="font-bold text-zinc-800">{{ i.title }}</div>
+                  <span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase" 
+                    :class="[i.status === 'fulfilled' ? 'bg-zinc-200 text-zinc-600' : 'bg-blue-100 text-blue-600']">
+                    {{ i.status || 'pending' }}
+                  </span>
+                </div>
+                <!-- 아이템별 개별 제어 버튼 -->
+                <div class="flex gap-1 flex-wrap">
+                  <button v-if="i.status === 'pending'" @click="updateItemStatus(order._id, i._id, 'approved')" class="text-[8px] font-black bg-white border border-zinc-200 px-2 py-1 rounded-md hover:bg-black hover:text-white transition-all">승인</button>
+                  <button v-if="i.status === 'approved'" @click="updateItemStatus(order._id, i._id, 'fulfilled')" class="text-[8px] font-black bg-zinc-900 text-white px-2 py-1 rounded-md hover:bg-blue-600 transition-all">배송</button>
+                  <button v-if="i.status === 'return_requested'" @click="updateItemStatus(order._id, i._id, 'returned')" class="text-[8px] font-black bg-orange-500 text-white px-2 py-1 rounded-md hover:bg-orange-600 transition-all">반납승인</button>
+                  <button v-if="i.status === 'pending' || i.status === 'approved'" @click="updateItemStatus(order._id, i._id, 'rejected')" class="text-[8px] font-black text-zinc-400 hover:text-red-500 px-2 py-1">반려</button>
+                </div>
               </div>
             </td>
             <td class="px-8 py-6 font-black text-blue-700">{{ order.totalPrice.toLocaleString() }} P</td>

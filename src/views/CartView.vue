@@ -27,6 +27,7 @@ const placeOrder = async () => {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
       body: JSON.stringify({
         items: cart.items.map(i => ({ productId: i._id, title: i.title, price: i.price, quantity: i.quantity, type: i.type })),
+        deliveryAddress: cart.deliveryAddress
       })
     })
     const data = await res.json()
@@ -104,6 +105,31 @@ const placeOrder = async () => {
           <div v-if="auth.isAuthenticated" class="mb-6 p-4 bg-white rounded-2xl border border-zinc-100">
             <div class="text-[10px] font-black uppercase text-zinc-400 mb-1">내 보유 포인트</div>
             <div class="text-2xl font-black">{{ auth.user?.pointBalance?.toLocaleString() }} <span class="text-xs text-zinc-300">P</span></div>
+          </div>
+
+          <!-- Delivery Address -->
+          <div class="mb-6">
+            <label class="text-[10px] font-black uppercase text-zinc-400 mb-2 block">배송 주소 (예: 내방책상)</label>
+            
+            <!-- Saved Address Chips -->
+            <div v-if="(auth.user as any)?.savedAddresses?.length > 0" class="flex flex-wrap gap-1.5 mb-3">
+              <button 
+                v-for="addr in (auth.user as any).savedAddresses" :key="addr"
+                @click="cart.setDeliveryAddress(addr)"
+                class="px-2.5 py-1 rounded-full text-[8px] font-black uppercase border transition-all"
+                :class="cart.deliveryAddress === addr ? 'bg-black text-white border-black' : 'bg-white text-zinc-400 border-zinc-100 hover:border-zinc-300'"
+              >
+                📍 {{ addr }}
+              </button>
+            </div>
+
+            <input 
+              :value="cart.deliveryAddress"
+              @input="(e: any) => cart.setDeliveryAddress(e.target.value)"
+              type="text" 
+              placeholder="어디로 보낼까요?" 
+              class="w-full px-4 py-3 bg-white border border-zinc-100 rounded-2xl focus:outline-none focus:border-black transition-colors font-bold text-sm"
+            />
           </div>
 
           <div class="space-y-3 mb-6">

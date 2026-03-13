@@ -14,6 +14,7 @@ export interface CartItem {
 
 export const useCartStore = defineStore('cart', () => {
     const items = ref<CartItem[]>(JSON.parse(localStorage.getItem('rocket_cart') || '[]'))
+    const deliveryAddress = ref(localStorage.getItem('rocket_address') || '')
 
     const saveCart = () => {
         localStorage.setItem('rocket_cart', JSON.stringify(items.value))
@@ -28,7 +29,7 @@ export const useCartStore = defineStore('cart', () => {
     const starDiscount = computed(() => (isStar.value && totalQty.value >= 5) ? Math.floor(totalPrice.value * 0.5) : 0)
     const discountedPrice = computed(() => totalPrice.value - starDiscount.value)
 
-    const FREE_SHIPPING_THRESHOLD = 1000 // 1000P 이상 무료배송
+    const FREE_SHIPPING_THRESHOLD = 9 // 9P 이상 무료배송
     const isFreeShipping = computed(() => isStar.value || discountedPrice.value >= FREE_SHIPPING_THRESHOLD)
     const remainingForFree = computed(() => Math.max(0, FREE_SHIPPING_THRESHOLD - discountedPrice.value))
 
@@ -68,12 +69,20 @@ export const useCartStore = defineStore('cart', () => {
 
     const clearCart = () => {
         items.value = []
+        deliveryAddress.value = ''
         saveCart()
+        localStorage.removeItem('rocket_address')
+    }
+
+    const setDeliveryAddress = (addr: string) => {
+        deliveryAddress.value = addr
+        localStorage.setItem('rocket_address', addr)
     }
 
     return {
         items, totalCount, totalPrice, totalQty, starDiscount, discountedPrice,
         shippingFee, finalPrice, isStar, isFreeShipping, remainingForFree, FREE_SHIPPING_THRESHOLD,
+        deliveryAddress, setDeliveryAddress,
         addItem, increaseQty, decreaseQty, removeItem, clearCart
     }
 })

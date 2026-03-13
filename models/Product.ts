@@ -33,6 +33,19 @@ const ProductSchema = new mongoose.Schema({
         enum: ['buy', 'rent'],
         default: 'buy',
     },
+    sellerId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null, // null이면 시스템 상품
+    },
+    isApproved: {
+        type: Boolean,
+        default: true, // 시스템 상품은 기본 승인
+    },
+    commissionRate: {
+        type: Number,
+        default: 0.1, // 기본 수수료 10%
+    },
 }, { timestamps: true });
 
 export default mongoose.models.Product || mongoose.model('Product', ProductSchema);

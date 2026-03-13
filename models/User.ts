@@ -37,6 +37,19 @@ const UserSchema = new mongoose.Schema({
         type: String,
         default: '/avatars/default.png',
     },
+    isSeller: {
+        type: Boolean,
+        default: false,
+    },
+    savedAddresses: [{
+        type: String,
+    }],
+    notifications: [{
+        message: { type: String, required: true },
+        type: { type: String, default: 'info' }, // 'info', 'success', 'warning', 'error'
+        read: { type: Boolean, default: false },
+        createdAt: { type: Date, default: Date.now }
+    }],
 }, { timestamps: true });
 
 export default mongoose.models.User || mongoose.model('User', UserSchema);

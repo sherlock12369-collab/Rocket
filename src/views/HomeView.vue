@@ -83,8 +83,9 @@ onMounted(fetchProducts)
           <div class="aspect-square bg-zinc-50 rounded-2xl mb-6 overflow-hidden relative">
             <img v-if="product.image" :src="product.image" class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700" @error="(e:any) => e.target.style.display='none'" />
             <div v-else class="w-full h-full flex items-center justify-center text-6xl">📦</div>
-            <div class="absolute top-3 left-3 flex gap-1.5">
+            <div class="absolute top-3 left-3 flex flex-wrap gap-1.5 max-w-[90%]">
               <span class="px-2.5 py-1 bg-white/90 backdrop-blur text-[9px] font-black uppercase rounded-full shadow-sm border border-zinc-100">{{ product.category }}</span>
+              <span v-if="product.sellerId" class="px-2.5 py-1 bg-blue-600 text-white text-[9px] font-black uppercase rounded-full shadow-sm">판매자배송</span>
               <span v-if="product.stock === 0" class="px-2.5 py-1 bg-red-500 text-white text-[9px] font-black uppercase rounded-full">품절</span>
             </div>
           </div>

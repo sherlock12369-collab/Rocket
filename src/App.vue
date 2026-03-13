@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { RouterView, RouterLink, useRouter } from 'vue-router'
 import { useAuthStore } from './store/auth'
 import { useRentalAlertStore } from './store/rentalAlert'
@@ -7,11 +8,68 @@ const auth = useAuthStore()
 const rentalAlert = useRentalAlertStore()
 const router = useRouter()
 
+// ─── Web Notification System & Sync ────────────────────────
+const lastNotifId = ref(localStorage.getItem('last_notif_id') || '')
+let syncInterval: any = null
+
+const fetchMyData = async () => {
+  if (!auth.isAuthenticated) return
+  try {
+    const res = await fetch('/api/me', { headers: { Authorization: `Bearer ${auth.token}` } })
+    if (res.ok) {
+      const data = await res.json()
+      auth.setAuth(auth.token, data.user)
+    }
+  } catch {}
+}
+
+const requestNotifPermission = async () => {
+  if (!('Notification' in window)) return
+  if (Notification.permission === 'default') {
+    await Notification.requestPermission()
+  }
+}
+
+const triggerWebNotif = (message: string) => {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('🚀 Rocket 함선 통신', {
+      body: message,
+      icon: '/favicon.ico'
+    })
+  }
+}
+
+// 새로운 알림 감시
+watch(() => (auth.user as any)?.notifications, (newNotifs) => {
+  if (!newNotifs || newNotifs.length === 0) return
+  
+  const latest = newNotifs[newNotifs.length - 1]
+  if (latest._id !== lastNotifId.value) {
+    lastNotifId.value = latest._id
+    localStorage.setItem('last_notif_id', latest._id)
+    triggerWebNotif(latest.message)
+  }
+}, { deep: true })
+
 const handleLogout = () => {
   auth.logout()
   rentalAlert.dismiss()
+  localStorage.removeItem('last_notif_id')
+  if (syncInterval) clearInterval(syncInterval)
   router.push('/auth/login')
 }
+
+onMounted(() => {
+  requestNotifPermission()
+  if (auth.isAuthenticated) {
+    fetchMyData()
+    syncInterval = setInterval(fetchMyData, 30000) // 30초마다 동기화
+  }
+})
+
+onUnmounted(() => {
+  if (syncInterval) clearInterval(syncInterval)
+})
 </script>
 
 <template>

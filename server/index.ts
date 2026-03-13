@@ -93,6 +93,24 @@ const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction) => {
     next();
 };
 
+// Helper: Add Notification
+const addNotification = async (userId: any, message: string, type: string = 'info') => {
+    try {
+        await User.findByIdAndUpdate(userId, {
+            $push: {
+                notifications: {
+                    message,
+                    type,
+                    createdAt: new Date(),
+                    read: false
+                }
+            }
+        });
+    } catch (err) {
+        console.error('Notification Error:', err);
+    }
+};
+
 // ─── Public Routes ────────────────────────────────────────────
 
 // Seed
@@ -133,11 +151,43 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
     }
 });
 
-// Products: Public List
+// Products: Public List (Approved only)
 app.get('/api/products', async (req: Request, res: Response) => {
     try {
-        const items = await Product.find().sort({ createdAt: -1 });
+        const items = await Product.find({ isApproved: true }).sort({ createdAt: -1 });
         res.json(items);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Products: Admin List (All)
+app.get('/api/admin/products', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+        const items = await Product.find().populate('sellerId', 'name username').sort({ createdAt: -1 });
+        res.json(items);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+// Products: Sell Request (User)
+app.post('/api/products/sell', authenticateToken, async (req: AuthRequest, res: Response) => {
+    const { title, description, price, category, image, type } = req.body;
+    try {
+        const product = new Product({
+            title,
+            description,
+            price,
+            category,
+            image,
+            type: type || 'buy',
+            sellerId: req.user.id,
+            isApproved: false, // 대원 상품은 미승인 시작
+            stock: 1, // 기본 1개
+            commissionRate: 0.1 // 기본 10%
+        });
+        await product.save();
+        res.json({ message: '보급품 판매 제안이 전송되었습니다! 지휘관님의 승인을 기다리세요. 🚀', product });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -146,11 +196,11 @@ app.get('/api/products', async (req: Request, res: Response) => {
 // Products: Update (Admin)
 app.patch('/api/products/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
-    const { title, description, price, category, stock, type, image } = req.body;
+    const { title, description, price, category, stock, type, image, isApproved, commissionRate } = req.body;
     try {
         const product = await Product.findByIdAndUpdate(
             id,
-            { title, description, price, category, stock, type, image },
+            { title, description, price, category, stock, type, image, isApproved, commissionRate },
             { new: true, runValidators: true }
         );
         if (!product) return res.status(404).json({ error: '상품을 찾을 수 없습니다.' });
@@ -191,6 +241,29 @@ app.get('/api/me', authenticateToken, async (req: AuthRequest, res: Response) =>
     }
 });
 
+// Notifications: Mark as read
+app.patch('/api/me/notifications/:id/read', authenticateToken, async (req: AuthRequest, res: Response) => {
+    try {
+        await User.updateOne(
+            { _id: req.user.id, "notifications._id": req.params.id },
+            { $set: { "notifications.$.read": true } }
+        );
+        res.json({ message: '알림을 확인했습니다.' });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Notifications: Clear all
+app.delete('/api/me/notifications/clear', authenticateToken, async (req: AuthRequest, res: Response) => {
+    try {
+        await User.findByIdAndUpdate(req.user.id, { $set: { notifications: [] } });
+        res.json({ message: '모든 알림이 삭제되었습니다.' });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Orders: Place Order
 app.post('/api/orders', authenticateToken, async (req: AuthRequest, res: Response) => {
     const { items } = req.body;
@@ -221,8 +294,8 @@ app.post('/api/orders', authenticateToken, async (req: AuthRequest, res: Respons
             discountApplied = true;
         }
 
-        // ⭐ Star 혜택 또는 1000P 이상 구매 시 배송비 면제 (일반 회원 = +50P)
-        const shippingFee = (isStar || basePrice >= 1000) ? 0 : 50;
+        // ⭐ Star 혜택 또는 9P 이상 구매 시 배송비 면제
+        const shippingFee = (isStar || basePrice >= 9) ? 0 : 50;
         const finalPrice = basePrice + shippingFee;
 
         if (user.pointBalance < finalPrice) return res.status(400).json({ error: '포인트가 부족합니다.' });
@@ -230,7 +303,14 @@ app.post('/api/orders', authenticateToken, async (req: AuthRequest, res: Respons
         user.pointBalance -= finalPrice;
         await user.save();
 
-        const order = new Order({ userId: req.user.id, items, totalPrice: finalPrice, status: 'pending' });
+        const { deliveryAddress } = req.body;
+        const order = new Order({ 
+            userId: req.user.id, 
+            items, 
+            totalPrice: finalPrice, 
+            status: 'pending',
+            deliveryAddress: deliveryAddress || '' 
+        });
         await order.save();
         res.json({
             message: '주문이 완료되었습니다!',
@@ -384,8 +464,37 @@ app.patch('/api/admin/users/:id/points', authenticateToken, requireAdmin, async 
         const user = await User.findById(id);
         if (!user) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
         user.pointBalance += amount;
-        await user.save();
         res.json({ message: '포인트가 업데이트되었습니다.', pointBalance: user.pointBalance });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Address Management: Add
+app.post('/api/me/addresses', authenticateToken, async (req: AuthRequest, res: Response) => {
+    const { address } = req.body;
+    try {
+        const user = await User.findByIdAndUpdate(
+            req.user.id,
+            { $addToSet: { savedAddresses: address } },
+            { new: true }
+        );
+        res.json({ message: '주소가 저장되었습니다.', savedAddresses: user.savedAddresses });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Address Management: Delete
+app.delete('/api/me/addresses', authenticateToken, async (req: AuthRequest, res: Response) => {
+    const { address } = req.body;
+    try {
+        const user = await User.findByIdAndUpdate(
+            req.user.id,
+            { $pull: { savedAddresses: address } },
+            { new: true }
+        );
+        res.json({ message: '주소가 삭제되었습니다.', savedAddresses: user.savedAddresses });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -431,7 +540,15 @@ app.patch('/api/admin/orders/:id/status', authenticateToken, requireAdmin, async
         if (!order) return res.status(404).json({ error: '주문을 찾을 수 없습니다.' });
         const previousStatus = order.status;
         order.status = status;
-        // fulfilled 전환 시: rent 아이템이 있으면 rentedAt 기록 (반납 기한 산정 기준)
+
+        // 개별 아이템들의 상태도 주문 전체 상태에 맞게 동기화 (이미 처리된 아이템 제외)
+        order.items.forEach((item: any) => {
+            if (item.status !== 'returned' && item.status !== 'rejected') {
+                item.status = status;
+            }
+        });
+
+        // fulfilled 전환 시: 알림 전송 + 정산 + 대여 기록
         if (status === 'fulfilled' && previousStatus !== 'fulfilled') {
             const hasRent = (order.items as any[]).some((i: any) => i.type === 'rent');
             if (hasRent) (order as any).rentedAt = new Date();
@@ -459,16 +576,126 @@ app.patch('/api/admin/orders/:id/status', authenticateToken, requireAdmin, async
                     } else {
                         refundAmount += Math.floor(itemTotal * refundRate);
                     }
+                    
+                    // 만약 사용자 판매 상품(sellerId 존재)이라면 재고 복구
+                    if (item.productId) {
+                        await Product.findByIdAndUpdate(item.productId, { $inc: { stock: item.quantity || 1 } });
+                    }
                 }
                 if (refundAmount > 0) { user.pointBalance += refundAmount; await user.save(); }
             }
+        }
+        
+        // 배송 완료(fulfilled) 시: 판매자에게 정산 (수수료 제함)
+        if (status === 'fulfilled' && previousStatus !== 'fulfilled') {
             for (const item of order.items as any[]) {
                 if (!item.productId) continue;
-                await Product.findByIdAndUpdate(item.productId, { $inc: { stock: item.quantity || 1 } });
+                const product = await Product.findById(item.productId);
+                if (product && product.sellerId) {
+                    const seller = await User.findById(product.sellerId);
+                    if (seller) {
+                        const commission = Math.floor(item.price * (item.quantity || 1) * (product.commissionRate || 0.1));
+                        const settlement = (item.price * (item.quantity || 1)) - commission;
+                        seller.pointBalance += settlement;
+                        await seller.save();
+                        console.log(`💰 [Settlement] ${seller.name}에게 ${settlement}P 정산 완료 (수수료: ${commission}P)`);
+                        
+                        // 판매자에게도 정산 알림
+                        await addNotification(seller._id, `[정산] 보급품 '${item.title}' 판매 대금 ${settlement}P가 입급되었습니다. (수수료 제함)`, 'success');
+                    }
+                }
             }
+            // 구매자에게 배송 완료 알림
+            await addNotification(order.userId._id, `[배송] 주문하신 '${order.items[0].title}${order.items.length > 1 ? ' 외 ' + (order.items.length - 1) + '건' : ''}' 보급이 완료되었습니다! 🚀`, 'success');
         }
         await order.save();
         res.json({ message: `주문 상태가 '${status}'(으)로 변경되었습니다.`, order });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Admin: Update Individual Item Status
+app.patch('/api/admin/orders/:orderId/items/:itemId/status', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+    const { orderId, itemId } = req.params;
+    const { status } = req.body;
+    try {
+        const order = await Order.findById(orderId);
+        if (!order) return res.status(404).json({ error: '주문을 찾을 수 없습니다.' });
+
+        const item = (order.items as any[]).find(i => i._id.toString() === itemId);
+        if (!item) return res.status(404).json({ error: '물품을 찾을 수 없습니다.' });
+
+        const prevItemStatus = item.status;
+        item.status = status;
+
+        // 개별 물품 반려 시 환불 로직
+        if (status === 'rejected' && prevItemStatus !== 'rejected') {
+            const user = await User.findById(order.userId);
+            if (user) {
+                user.pointBalance += (item.price * item.quantity);
+                await user.save();
+                await addNotification(user._id, `[반려] '${item.title}' 보급이 반려되어 ${(item.price * item.quantity)}P가 환불되었습니다.`, 'warning');
+            }
+            // 재고 복구
+            if (item.productId) await Product.findByIdAndUpdate(item.productId, { $inc: { stock: item.quantity } });
+        }
+
+        // 개별 물품 반품 승인 시 환불 로직
+        if (status === 'returned' && prevItemStatus !== 'returned') {
+            const user = await User.findById(order.userId);
+            if (user) {
+                const refundRate = user.membershipTier === 'star' ? 0.6 : 0.5;
+                const refundAmount = item.type === 'rent' ? 0 : Math.floor(item.price * item.quantity * refundRate);
+                if (refundAmount > 0) {
+                    user.pointBalance += refundAmount;
+                    await user.save();
+                    await addNotification(user._id, `[반품완료] '${item.title}' 반품이 승인되어 ${refundAmount}P가 환불되었습니다.`, 'success');
+                } else if (item.type === 'rent') {
+                    await addNotification(user._id, `[반납완료] '${item.title}'이 정상적으로 함선으로 귀환했습니다.`, 'success');
+                }
+            }
+            if (item.productId) await Product.findByIdAndUpdate(item.productId, { $inc: { stock: item.quantity } });
+        }
+
+        // 개별 물품 배송 완료 시 정산 로직
+        if (status === 'fulfilled' && prevItemStatus !== 'fulfilled') {
+            const product = await Product.findById(item.productId);
+            if (product && product.sellerId) {
+                const seller = await User.findById(product.sellerId);
+                if (seller) {
+                    const commission = Math.floor(item.price * item.quantity * (product.commissionRate || 0.1));
+                    const settlement = (item.price * item.quantity) - commission;
+                    seller.pointBalance += settlement;
+                    await seller.save();
+                    await addNotification(seller._id, `[정산] 보급품 '${item.title}' 판매 대금 ${settlement}P가 입금되었습니다.`, 'success');
+                }
+            }
+        }
+
+        await order.save();
+        res.json({ message: '물품 상태가 업데이트되었습니다.', item });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// User: Request Individual Item Return
+app.post('/api/orders/:orderId/items/:itemId/request-return', authenticateToken, async (req: AuthRequest, res: Response) => {
+    const { orderId, itemId } = req.params;
+    try {
+        const order = await Order.findOne({ _id: orderId, userId: req.user.id });
+        if (!order) return res.status(404).json({ error: '주문을 찾을 수 없습니다.' });
+
+        const item = (order.items as any[]).find(i => i._id.toString() === itemId);
+        if (!item) return res.status(404).json({ error: '물품을 찾을 수 없습니다.' });
+
+        if (item.status !== 'fulfilled') return res.status(400).json({ error: '이미 보급이 완료된 물품만 반품 요청이 가능합니다.' });
+
+        item.status = 'return_requested';
+        await order.save();
+
+        res.json({ message: `${item.type === 'rent' ? '반납' : '반품'} 요청이 지휘관에게 전송되었습니다. 🚀` });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -677,6 +904,24 @@ async function applyMonthlyStarFee() {
 }
 cron.schedule('0 0 1 * *', applyMonthlyStarFee, {
     timezone: 'Asia/Seoul'
+});
+
+// 💰 [관리자 전용] 사용자 포인트 하사 (충전/차감)
+app.patch('/api/admin/users/:id/points', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const { amount } = req.body; // 양수면 충전, 음수면 차감
+    try {
+        const user = await User.findById(id);
+        if (!user) return res.status(404).json({ error: '대원을 찾을 수 없습니다.' });
+        
+        user.pointBalance += Number(amount);
+        await user.save();
+        
+        console.log(`🎁 [Admin] ${user.name} 대원에게 ${amount}P 하사 완료 (현재 잔액: ${user.pointBalance}P)`);
+        res.json({ message: '포인트 하사가 완료되었습니다.', newBalance: user.pointBalance });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // ⭐ Star 회원 업그레이드 (1000P 차감 → star 전환)

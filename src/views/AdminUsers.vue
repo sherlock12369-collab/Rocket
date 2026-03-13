@@ -205,6 +205,24 @@ onMounted(fetchUsers)
               <button @click="givePoints(user._id, -5)"   class="h-9 px-3 rounded-full border border-red-200 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all text-xs font-black">-5</button>
               <button @click="givePoints(user._id, -1)"   class="h-9 px-3 rounded-full border border-red-200 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all text-xs font-black">-1</button>
             </div>
+            <!-- 수동 포인트 하사 -->
+            <div class="flex gap-2 mt-1">
+              <input 
+                type="number" 
+                placeholder="금액" 
+                class="w-20 px-3 h-9 bg-zinc-50 border border-zinc-100 rounded-full text-[10px] font-black focus:outline-none focus:border-black"
+                @keyup.enter="(e: any) => { if(e.target.value) { givePoints(user._id, Number(e.target.value)); e.target.value = ''; } }"
+              />
+              <button 
+                @click="(e: any) => { 
+                  const input = (e.currentTarget.previousElementSibling as HTMLInputElement); 
+                  if(input.value) { givePoints(user._id, Number(input.value)); input.value = ''; } 
+                }"
+                class="h-9 px-4 rounded-full bg-blue-600 text-white text-[10px] font-black hover:bg-blue-800 transition-all"
+              >
+                하사 (Manual)
+              </button>
+            </div>
             <!-- 수정/삭제 버튼 -->
             <div class="flex gap-3 mt-1">
               <button @click="openEditModal(user)" class="text-[10px] font-black uppercase text-zinc-400 hover:text-black transition-colors">정보 수정</button>

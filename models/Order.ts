@@ -10,6 +10,11 @@ const OrderItemSchema = new mongoose.Schema({
     price: { type: Number, required: true }, // Snapshot of price at purchase
     quantity: { type: Number, default: 1 },
     type: { type: String, enum: ['buy', 'rent'], default: 'buy' },
+    status: { 
+        type: String, 
+        enum: ['pending', 'approved', 'fulfilled', 'rejected', 'return_requested', 'returned'],
+        default: 'pending' 
+    },
 });
 
 const OrderSchema = new mongoose.Schema({
@@ -35,6 +40,7 @@ const OrderSchema = new mongoose.Schema({
     },
     rentedAt: { type: Date, default: null },         // 배송 완료(fulfilled) 시각 - 반납 기한 계산 기준
     penaltyDaysCharged: { type: Number, default: 0 }, // 이미 차감 처리된 페널티 일수
+    deliveryAddress: { type: String, default: '' },   // 배송 주소 (예: 내방책상)
 
 }, { timestamps: true });
 
