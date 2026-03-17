@@ -96,6 +96,7 @@ onUnmounted(() => {
 
           <!-- Admin Nav (관리자 전용) -->
           <div v-if="auth.isAdmin" class="hidden md:flex items-center gap-4 text-[10px] font-black uppercase text-zinc-400">
+            <RouterLink to="/admin/dashboard" class="hover:text-black transition-colors">📈 상황판</RouterLink>
             <RouterLink to="/admin/products" class="hover:text-black transition-colors">📦 상품</RouterLink>
             <RouterLink to="/admin/orders"   class="hover:text-black transition-colors">📋 주문</RouterLink>
             <RouterLink to="/admin/users"    class="hover:text-black transition-colors">👥 대원</RouterLink>

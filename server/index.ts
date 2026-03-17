@@ -214,7 +214,7 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
 // Products: Public List (Approved only)
 app.get('/api/products', async (req: Request, res: Response) => {
     try {
-        const items = await Product.find({ isApproved: true }).sort({ createdAt: -1 });
+        const items = await Product.find({ isApproved: true }).sort({ createdAt: -1 }).allowDiskUse(true);
         res.json(items);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -224,12 +224,14 @@ app.get('/api/products', async (req: Request, res: Response) => {
 // Products: Admin List (All)
 app.get('/api/admin/products', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
     try {
-        const items = await Product.find().populate('sellerId', 'name username').sort({ createdAt: -1 });
+        const items = await Product.find().populate('sellerId', 'name username').sort({ createdAt: -1 }).allowDiskUse(true);
         res.json(items);
     } catch (error: any) {
+        console.error('API /admin/products Error:', error);
         res.status(500).json({ error: error.message });
     }
 });
+
 // Products: Sell Request (User)
 app.post('/api/products/sell', authenticateToken, async (req: AuthRequest, res: Response) => {
     const { title, description, price, category, image, type } = req.body;
@@ -749,6 +751,68 @@ app.get('/api/admin/orders', authenticateToken, requireAdmin, async (req: AuthRe
     try {
         const items = await Order.find().populate('userId', 'name username').sort({ createdAt: -1 });
         res.json(items);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Admin: Analytics Dashboard Data
+app.get('/api/admin/analytics', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+        // 1. 전체 떠도는 포인트 총합 (Total Floating Points)
+        const allUsers = await User.find({ role: 'user' });
+        const totalFloatingPoints = allUsers.reduce((sum, u) => sum + (u.pointBalance || 0), 0);
+
+        // 2. 누적 매출 & 가장 많이 팔린 아이템 (최근 30일)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        const recentOrders = await Order.find({ 
+            createdAt: { $gte: thirtyDaysAgo },
+            status: { $in: ['fulfilled', 'pending'] } 
+        });
+
+        let totalRevenue = 0;
+        const itemSalesCounter: Record<string, number> = {};
+        
+        recentOrders.forEach(order => {
+            totalRevenue += order.totalPrice;
+            order.items.forEach((item: any) => {
+                const title = item.title;
+                const qty = item.quantity || 1;
+                if (!itemSalesCounter[title]) itemSalesCounter[title] = 0;
+                itemSalesCounter[title] += qty;
+            });
+        });
+
+        // 가장 많이 팔린 아이템 Top 5 추출
+        const topItems = Object.entries(itemSalesCounter)
+            .map(([title, count]) => ({ title, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5);
+
+        // 3. 일자별 매출 동향 (차트 곡선용)
+        const dailyRevenue: Record<string, number> = {};
+        recentOrders.forEach(order => {
+            const dateStr = new Date(order.createdAt).toISOString().split('T')[0]; // YYYY-MM-DD
+            if (!dailyRevenue[dateStr]) dailyRevenue[dateStr] = 0;
+            dailyRevenue[dateStr] += order.totalPrice;
+        });
+
+        const sortedDailyRevenue = Object.entries(dailyRevenue)
+            .map(([date, amount]) => ({ date, amount }))
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        res.json({
+            summary: {
+                totalFloatingPoints,
+                totalRevenue30Days: totalRevenue,
+                totalOrders30Days: recentOrders.length
+            },
+            topItems,
+            dailyRevenue: sortedDailyRevenue
+        });
+
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
