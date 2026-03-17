@@ -12,17 +12,19 @@
   },
   "dependencies": {
     "@types/node-cron": "^3.0.11",
-    "node-cron": "^4.2.1",
-    "pinia": "^3.0.4",
-    "vue": "^3.5.28",
-    "vue-router": "^5.0.2",
-    "tsx": "^4.19.3",
-    "express": "^5.0.1",
-    "mongoose": "^9.2.1",
     "bcryptjs": "^3.0.3",
+    "chart.js": "^4.5.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
-    "jsonwebtoken": "^9.0.2"
+    "express": "^5.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^9.2.1",
+    "node-cron": "^4.2.1",
+    "pinia": "^3.0.4",
+    "tsx": "^4.19.3",
+    "vue": "^3.5.28",
+    "vue-chartjs": "^5.3.3",
+    "vue-router": "^5.0.2"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.18",

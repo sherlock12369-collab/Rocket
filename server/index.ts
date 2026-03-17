@@ -241,6 +241,39 @@ app.get('/api/me', authenticateToken, async (req: AuthRequest, res: Response) =>
     }
 });
 
+// Daily Roulette: Spin for 1-5 Points
+app.post('/api/me/roulette', authenticateToken, async (req: AuthRequest, res: Response) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+
+        const now = new Date();
+        const lastDate = (user as any).lastRouletteDate;
+        
+        // 24시간 체크 (간단히 날짜가 다르면 가능하도록 처리)
+        if (lastDate && lastDate.toDateString() === now.toDateString()) {
+            return res.status(400).json({ error: '오늘은 이미 룰렛을 돌리셨습니다! 내일 다시 시도해주세요.' });
+        }
+
+        const wonPoints = Math.floor(Math.random() * 5) + 1; // 1 to 5
+        user.pointBalance += wonPoints;
+        (user as any).lastRouletteDate = now;
+        
+        // 알림도 추가
+        user.notifications.push({
+            message: `🎰 일일 보급품 룰렛에서 ${wonPoints}P에 당첨되었습니다!`,
+            type: 'success',
+            read: false,
+            createdAt: now
+        } as any);
+
+        await user.save();
+        res.json({ message: `${wonPoints}P 당첨!`, wonPoints, pointBalance: user.pointBalance });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Notifications: Mark as read
 app.patch('/api/me/notifications/:id/read', authenticateToken, async (req: AuthRequest, res: Response) => {
     try {
