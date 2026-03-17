@@ -46,14 +46,14 @@ const doughnutChartData = ref({ labels: [], datasets: [] as any[] })
 const lineChartData = ref({ labels: [], datasets: [] as any[] })
 
 // 차트 옵션 설정
-const chartOptions = {
+const chartOptions: any = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-        legend: { position: 'bottom' as const, labels: { color: '#a1a1aa', font: { family: 'Pretendard', weight: 'bold' } } }
+        legend: { position: 'bottom', labels: { color: '#a1a1aa', font: { family: 'Pretendard', weight: 'bold' } } }
     }
 }
-const lineChartOptions = {
+const lineChartOptions: any = {
     ...chartOptions,
     scales: {
         y: { grid: { color: '#f4f4f5' }, border: { display: false } },
@@ -73,11 +73,12 @@ const fetchAnalytics = async () => {
             analytics.value = await res.json()
             
             // 1. 도넛 차트 (인기 상품 Top 5) 세팅
+            const top5Colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f43f5e', '#facc15'];
             doughnutChartData.value = {
-                labels: analytics.value.topItems.map((i: any) => i.title),
+                labels: analytics.value.topItems.map((i: any) => `${i.title} (${i.revenue.toLocaleString()} P)`),
                 datasets: [{
-                    data: analytics.value.topItems.map((i: any) => i.count),
-                    backgroundColor: ['#3b82f6', '#8b5cf6', '#ec4899', '#f43f5e', '#facc15'],
+                    data: analytics.value.topItems.map((i: any) => i.revenue), // 기준을 포인트 매출 볼륨으로 변경
+                    backgroundColor: top5Colors,
                     borderWidth: 0,
                     hoverOffset: 10
                 }]

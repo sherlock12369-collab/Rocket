@@ -773,22 +773,27 @@ app.get('/api/admin/analytics', authenticateToken, requireAdmin, async (req: Aut
         });
 
         let totalRevenue = 0;
-        const itemSalesCounter: Record<string, number> = {};
+        const itemSalesCounter: Record<string, { count: number, revenue: number }> = {};
         
         recentOrders.forEach(order => {
             totalRevenue += order.totalPrice;
             order.items.forEach((item: any) => {
                 const title = item.title;
                 const qty = item.quantity || 1;
-                if (!itemSalesCounter[title]) itemSalesCounter[title] = 0;
-                itemSalesCounter[title] += qty;
+                const price = item.price || 0;
+                
+                if (!itemSalesCounter[title]) {
+                    itemSalesCounter[title] = { count: 0, revenue: 0 };
+                }
+                itemSalesCounter[title].count += qty;
+                itemSalesCounter[title].revenue += (price * qty);
             });
         });
 
-        // 가장 많이 팔린 아이템 Top 5 추출
+        // 3. 가장 많이 팔린 아이템 Top 5 추출 (매출액 기준 정렬로 고도화)
         const topItems = Object.entries(itemSalesCounter)
-            .map(([title, count]) => ({ title, count }))
-            .sort((a, b) => b.count - a.count)
+            .map(([title, data]) => ({ title, count: data.count, revenue: data.revenue }))
+            .sort((a, b) => b.revenue - a.revenue)
             .slice(0, 5);
 
         // 3. 일자별 매출 동향 (차트 곡선용)
