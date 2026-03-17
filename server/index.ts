@@ -126,7 +126,52 @@ const addNotification = async (userId: any, message: string, type: string = 'inf
     }
 };
 
+// ─── BACKGROUND JOBS ─────────────────────────────────────────
+// 매 분마다 경매 종료 여부를 체크 (Cron)
+cron.schedule('* * * * *', async () => {
+    try {
+        const now = new Date();
+        const expiredAuctions = await Auction.find({ status: 'active', endTime: { $lte: now } });
+
+        for (const auction of expiredAuctions) {
+            auction.status = 'ended';
+            await auction.save();
+
+            if (auction.highestBidder) {
+                // 낙찰 성공
+                await addNotification(
+                    auction.highestBidder, 
+                    `🎉 축하합니다! 희귀품 경매 '${auction.title}'건이 ${auction.currentBid}P에 최종 낙찰되었습니다. (배송 준비 중)`, 
+                    'success'
+                );
+                // (선택) 여기서 자동으로 Order 콜렉션에 주문을 넣어주거나 관리자 승인 대기 상태로 만들 수 있음
+                const order = new Order({
+                    userId: auction.highestBidder,
+                    items: [{
+                        title: `[경매 낙찰품] ${auction.title}`,
+                        price: auction.currentBid,
+                        image: auction.image,
+                        category: 'Auction',
+                        type: 'buy',
+                        status: 'pending'
+                    }],
+                    totalPrice: auction.currentBid,
+                    address: '사령부 특급 직배송',
+                    status: 'pending'
+                });
+                await order.save();
+            } else {
+                // 유찰
+                console.log(`🔨 경매 '${auction.title}' - 입찰자 없이 종료(유찰)되었습니다.`);
+            }
+        }
+    } catch (err) {
+        console.error('Auction Cron Error:', err);
+    }
+});
+
 // ─── Public Routes ────────────────────────────────────────────
+
 
 // Seed
 app.get('/api/seed', async (req: Request, res: Response) => {
@@ -564,6 +609,136 @@ app.delete('/api/products/:id', authenticateToken, requireAdmin, async (req: Aut
     try {
         await Product.findByIdAndDelete(req.params.id);
         res.json({ message: '상품이 삭제되었습니다.' });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ─── AUCTIONS ───────────────────────────────────────────
+// Auctions: List (Public)
+app.get('/api/auctions', authenticateToken, async (req: AuthRequest, res: Response) => {
+    try {
+        const auctions = await Auction.find().populate('highestBidder', 'name username').sort({ endTime: 1 });
+        res.json(auctions);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Admin: Create Auction
+app.post('/api/admin/auctions', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+        const { title, description, image, startingBid, endTime } = req.body;
+        if (!title || startingBid === undefined || !endTime) {
+            return res.status(400).json({ error: '필수 정보(제목, 시작가, 종료시간)가 누락되었습니다.' });
+        }
+        
+        const auction = new Auction({
+            title,
+            description,
+            image,
+            startingBid: Number(startingBid),
+            currentBid: Number(startingBid),
+            endTime: new Date(endTime),
+            status: 'active'
+        });
+        await auction.save();
+        res.json(auction);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Auctions: Place a Bid
+app.post('/api/auctions/:id/bid', authenticateToken, async (req: AuthRequest, res: Response) => {
+    // 몽구스 트랜잭션을 사용하면 좋으나, 단일 노드 몽고DB 환경일 가능성을 고려해 순차적 락 기반 처리 시뮬레이션
+    try {
+        const { bidAmount } = req.body;
+        const amount = Number(bidAmount);
+        if (!amount || amount <= 0) return res.status(400).json({ error: '유효한 입찰 금액을 입력하세요.' });
+
+        // 1. 경매품 가져오기
+        const auction = await Auction.findById(req.params.id);
+        if (!auction) return res.status(404).json({ error: '경매를 찾을 수 없습니다.' });
+        if (auction.status !== 'active' || new Date(auction.endTime) <= new Date()) {
+            auction.status = 'ended';
+            await auction.save();
+            return res.status(400).json({ error: '이미 종료된 경매입니다.' });
+        }
+        if (amount <= auction.currentBid) {
+            return res.status(400).json({ error: `현재 최고 입찰가(${auction.currentBid}P)보다 높은 금액을 제시해야 합니다.` });
+        }
+
+        // 2. 현재 입찰자 정보 확인
+        const currentUser = await User.findById(req.user.id);
+        if (!currentUser) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+        if (currentUser.pointBalance < amount) {
+            return res.status(400).json({ error: '포인트가 부족합니다.' });
+        }
+
+        // 3. 이전 최고 입찰자가 있다면 환급 처리 및 알림 (본인이 갱신하는 특수 케이스 포함)
+        if (auction.highestBidder) {
+            if (auction.highestBidder.toString() === req.user.id) {
+                // 본인이 자기 입찰가를 올리는 경우: 차액만 뺌
+                const diff = amount - auction.currentBid;
+                if (currentUser.pointBalance < diff) return res.status(400).json({ error: '포인트가 부족합니다.' });
+                currentUser.pointBalance -= diff;
+            } else {
+                // 다른 사람의 입찰가를 갈아치운 경우
+                const previousBidder = await User.findById(auction.highestBidder);
+                if (previousBidder) {
+                    previousBidder.pointBalance += auction.currentBid; // 이전 금액 환불
+                    previousBidder.notifications.push({
+                        message: `🔨 [상회 입찰 발생] 누군가 '${auction.title}' 경매에 더 높은 금액을 불렀습니다! 예약된 ${auction.currentBid}P가 환불되었습니다.`,
+                        type: 'warning',
+                        read: false,
+                        createdAt: new Date()
+                    } as any);
+                    await previousBidder.save();
+                }
+                // 새로운 1등은 전체 금액 차감
+                currentUser.pointBalance -= amount;
+            }
+        } else {
+            // 최초 입찰자
+            currentUser.pointBalance -= amount;
+        }
+
+        await currentUser.save();
+
+        // 4. 경매품 상태 갱신
+        auction.currentBid = amount;
+        auction.highestBidder = currentUser._id;
+        await auction.save();
+
+        res.json({ message: '성공적으로 입찰되었습니다!', auction, pointBalance: currentUser.pointBalance });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Admin: Delete Auction (Emergency)
+app.delete('/api/admin/auctions/:id', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+    try {
+        const auction = await Auction.findById(req.params.id);
+        if (!auction) return res.status(404).json({ error: '경매를 찾을 수 없습니다.' });
+
+        // 최고 입찰자가 이미 있다면 포인트 환불 처리
+        if (auction.highestBidder) {
+            const bidder = await User.findById(auction.highestBidder);
+            if (bidder) {
+                bidder.pointBalance += auction.currentBid;
+                bidder.notifications.push({
+                    message: `⚠️ [경매 취소] 관리자에 의해 '${auction.title}' 경매가 취소되어, 예약된 ${auction.currentBid}P가 환불되었습니다.`,
+                    type: 'error',
+                    read: false,
+                    createdAt: new Date()
+                } as any);
+                await bidder.save();
+            }
+        }
+        await Auction.findByIdAndDelete(req.params.id);
+        res.json({ message: '경매가 삭제되었습니다.' });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

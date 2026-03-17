@@ -90,6 +90,7 @@ onUnmounted(() => {
               <RouterLink to="/cart"    class="hover:text-blue-600 transition-colors">보급창고</RouterLink>
               <RouterLink to="/profile" class="hover:text-blue-600 transition-colors">함선일지</RouterLink>
               <RouterLink to="/missions" class="hover:text-blue-600 transition-colors">미션</RouterLink>
+              <RouterLink to="/auctions" class="hover:text-amber-500 transition-colors">경매장 🔨</RouterLink>
             </template>
           </div>
 
@@ -99,9 +100,11 @@ onUnmounted(() => {
             <RouterLink to="/admin/orders"   class="hover:text-black transition-colors">📋 주문</RouterLink>
             <RouterLink to="/admin/users"    class="hover:text-black transition-colors">👥 대원</RouterLink>
             <RouterLink to="/admin/missions" class="hover:text-black transition-colors">🎯 미션</RouterLink>
+            <RouterLink to="/admin/auctions" class="hover:text-amber-500 transition-colors">🔨 경매 통제</RouterLink>
           </div>
 
           <!-- Auth Controls -->
+
           <div class="flex items-center gap-4">
             <RouterLink v-if="auth.isAuthenticated" to="/cart" class="p-2 hover:bg-gray-100 rounded-full transition-colors">
               <span class="text-xl">🛒</span>
