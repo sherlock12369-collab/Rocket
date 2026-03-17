@@ -29,6 +29,18 @@ const router = createRouter({
             meta: { requiresAuth: true }
         },
         {
+            path: '/auctions',
+            name: 'auctions',
+            component: () => import('../views/AuctionView.vue'),
+            meta: { requiresAuth: true }
+        },
+        {
+            path: '/admin/auctions',
+            name: 'admin-auctions',
+            component: () => import('../views/AdminAuctions.vue'),
+            meta: { requiresAuth: true, requiresAdmin: true }
+        },
+        {
             path: '/admin/products',
             name: 'admin-products',
             component: () => import('../views/AdminProducts.vue'),

@@ -15,6 +15,7 @@ import User from '../models/User.ts';
 import Product from '../models/Product.ts';
 import Order from '../models/Order.ts';
 import Mission from '../models/Mission.ts';
+import Auction from '../models/Auction.ts';
 
 // Load environment variables (.env.local for local, .env or system env for production)
 dotenv.config({ path: '.env.local' });
@@ -53,10 +54,24 @@ mongoose.connect(process.env.MONGODB_URI!)
         } catch (err) {
             console.error('❌ [Auto-Seed] 실패:', err);
         }
+
+        // Auto-Fix: 승인 필드가 없는 기존 상품들을 일괄 승인(true) 처리하여 노출 복구
+        try {
+            const updateResult = await Product.updateMany(
+                { isApproved: { $exists: false } },
+                { $set: { isApproved: true } }
+            );
+            if (updateResult.modifiedCount > 0) {
+                console.log(`🚀 [Auto-Fix] ${updateResult.modifiedCount}개의 기존 상품을 승인 상태로 복구했습니다.`);
+            }
+        } catch (err) {
+            console.error('❌ [Auto-Fix] 실패:', err);
+        }
     })
     .catch((err: any) => {
         console.error('❌ MongoDB 연결 실패:', err.message);
     });
+
 
 // Health Check for Render
 app.get('/api/health', (req: Request, res: Response) => {
