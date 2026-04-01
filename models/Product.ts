@@ -48,4 +48,8 @@ const ProductSchema = new mongoose.Schema({
     },
 }, { timestamps: true });
 
+// 정렬 및 필터링 최적화 인덱스 추가
+ProductSchema.index({ createdAt: -1 }); 
+ProductSchema.index({ isApproved: 1, createdAt: -1 });
+
 export default mongoose.models.Product || mongoose.model('Product', ProductSchema);

@@ -11,4 +11,6 @@ const AuctionSchema = new mongoose.Schema({
     status: { type: String, enum: ['active', 'ended'], default: 'active' }
 }, { timestamps: true });
 
+AuctionSchema.index({ createdAt: -1 });
+
 export default mongoose.models.Auction || mongoose.model('Auction', AuctionSchema);

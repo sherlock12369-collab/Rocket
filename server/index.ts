@@ -749,7 +749,7 @@ app.delete('/api/admin/auctions/:id', authenticateToken, requireAdmin, async (re
 // Admin: List Orders
 app.get('/api/admin/orders', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
     try {
-        const items = await Order.find().populate('userId', 'name username').sort({ createdAt: -1 });
+        const items = await Order.find().populate('userId', 'name username').sort({ createdAt: -1 }).allowDiskUse(true);
         res.json(items);
     } catch (error: any) {
         res.status(500).json({ error: error.message });

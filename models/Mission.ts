@@ -18,4 +18,6 @@ const MissionSchema = new mongoose.Schema({
     },
 }, { timestamps: true });
 
+MissionSchema.index({ createdAt: -1 });
+
 export default mongoose.models.Mission || mongoose.model('Mission', MissionSchema);
