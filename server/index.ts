@@ -126,7 +126,45 @@ const addNotification = async (userId: any, message: string, type: string = 'inf
     }
 };
 
+// Helper: Broadcast Notification to All Users
+const broadcastNotification = async (message: string, type: string = 'info') => {
+    try {
+        await User.updateMany({}, {
+            $push: {
+                notifications: {
+                    message,
+                    type,
+                    createdAt: new Date(),
+                    read: false
+                }
+            }
+        });
+        console.log(`📢 [Broadcast] ${message}`);
+    } catch (err) {
+        console.error('Broadcast Notification Error:', err);
+    }
+};
+
 // ─── BACKGROUND JOBS ─────────────────────────────────────────
+
+// 3시간마다 랜덤 상품 홍보 (소식지) - 지휘관 명령 준수
+cron.schedule('0 */3 * * *', async () => {
+    try {
+        const count = await Product.countDocuments({ isApproved: true });
+        if (count === 0) return;
+        const random = Math.floor(Math.random() * count);
+        const randomProduct = await Product.findOne({ isApproved: true }).skip(random);
+        if (randomProduct) {
+            await broadcastNotification(
+                `🛰️ [지휘관 추천] 오늘의 특수 보급품: '${randomProduct.title}'! 지금 바로 확인하십시오.`,
+                'info'
+            );
+        }
+    } catch (err) {
+        console.error('Promotion Cron Error:', err);
+    }
+});
+
 // 매 분마다 경매 종료 여부를 체크 (Cron)
 cron.schedule('* * * * *', async () => {
     try {
@@ -645,7 +683,51 @@ app.post('/api/admin/auctions', authenticateToken, requireAdmin, async (req: Aut
             status: 'active'
         });
         await auction.save();
+
+        // [Broadcast] 경매 시작 알림 전파
+        await broadcastNotification(
+            `🔥 [긴급] 새로운 희귀품 경매가 시작되었습니다: '${title}'! 지금 바로 쟁탈전에 참여하십시오.`,
+            'warning'
+        );
+
         res.json(auction);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Products: Public Popular Top 5 (Based on last 30 days revenue)
+app.get('/api/products/popular', async (req: Request, res: Response) => {
+    try {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        const recentOrders = await Order.find({ 
+            createdAt: { $gte: thirtyDaysAgo },
+            status: { $in: ['fulfilled', 'pending'] } 
+        }).allowDiskUse(true);
+
+        const itemSalesCounter: Record<string, { revenue: number, productId: any, image: string, price: number }> = {};
+        
+        recentOrders.forEach(order => {
+            order.items.forEach((item: any) => {
+                const title = item.title;
+                const qty = item.quantity || 1;
+                const price = item.price || 0;
+                
+                if (!itemSalesCounter[title]) {
+                    itemSalesCounter[title] = { revenue: 0, productId: item.productId, image: item.image, price: item.price };
+                }
+                itemSalesCounter[title].revenue += (price * qty);
+            });
+        });
+
+        const topItems = Object.entries(itemSalesCounter)
+            .map(([title, data]) => ({ title, revenue: data.revenue, productId: data.productId, image: data.image, price: data.price }))
+            .sort((a, b) => b.revenue - a.revenue)
+            .slice(0, 5);
+            
+        res.json(topItems);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }

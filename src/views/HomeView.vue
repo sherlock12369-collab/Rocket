@@ -13,6 +13,7 @@ const products = ref<any[]>([])
 const loading = ref(false)
 const selectedCategory = ref('전체')
 const addedId = ref('')
+const popularProducts = ref<any[]>([])
 
 // ─── Roulette System ───────────────────────────────────
 const showRoulette = ref(false)
@@ -83,7 +84,17 @@ const handleAddToCart = (product: any) => {
   setTimeout(() => addedId.value = '', 1200)
 }
 
-onMounted(fetchProducts)
+const fetchPopularProducts = async () => {
+    try {
+        const res = await fetch('/api/products/popular')
+        if (res.ok) popularProducts.value = await res.json()
+    } catch (err) { console.error('Popular Fetch Error:', err) }
+}
+
+onMounted(() => {
+    fetchProducts()
+    fetchPopularProducts()
+})
 </script>
 
 <template>
@@ -93,9 +104,49 @@ onMounted(fetchProducts)
       <div class="max-w-7xl mx-auto px-6 flex flex-col items-center text-center py-20 lg:py-32">
         <h1 class="text-samsung-header mb-8">Experience <br/> <span class="text-zinc-300">New Galaxy.</span></h1>
         <p class="text-xl text-zinc-500 font-medium mb-12 max-w-2xl leading-relaxed">로켓 패밀리 함선의 대원들을 위한 최첨단 보급품과 특별한 경험을 만나보세요.</p>
-        <a href="#products" class="btn-samsung btn-samsung-black px-12 py-5 text-sm uppercase tracking-widest shadow-2xl">탐사 시작하기</a>
+        <div class="flex gap-4">
+            <a href="#products" class="btn-samsung btn-samsung-black px-12 py-5 text-sm uppercase tracking-widest shadow-2xl">탐사 시작하기</a>
+            <button @click="showRoulette = true" class="btn-samsung bg-white text-black border border-zinc-200 px-8 py-5 text-sm uppercase tracking-widest hover:bg-zinc-100">🎰 럭키 룰렛</button>
+        </div>
       </div>
       <div class="absolute -bottom-20 -right-20 text-[300px] opacity-[0.03] select-none rotate-12 pointer-events-none">🚀</div>
+    </section>
+
+    <!-- 🏆 인기 전리품 TOP 5 전광판 -->
+    <section v-if="popularProducts.length > 0" class="py-20 bg-white border-b border-zinc-100">
+      <div class="max-w-7xl mx-auto px-6">
+        <div class="mb-10 flex items-center justify-between">
+          <div>
+            <h2 class="text-2xl font-black uppercase tracking-tighter mb-2">🏆 <span class="text-blue-600">Top 5</span> Popular Loot</h2>
+            <p class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">최근 30일간 대원들이 가장 많이 확보한 최첨단 보급품 순위</p>
+          </div>
+          <div class="hidden md:block">
+            <span class="px-4 py-2 bg-zinc-50 text-[10px] font-black uppercase rounded-full border border-zinc-100 text-zinc-400 tracking-widest">Real-time Data Sync 📡</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div v-for="(p, index) in popularProducts" :key="p.title" 
+            class="bg-zinc-50 p-6 rounded-[32px] border border-zinc-100 hover:border-blue-200 transition-all group relative overflow-hidden"
+          >
+            <div class="absolute -right-4 -top-4 text-7xl font-black text-zinc-100/50 group-hover:text-blue-50/50 transition-colors z-0 italic">{{ index + 1 }}</div>
+            
+            <div class="relative z-10 flex flex-col h-full">
+              <div class="w-16 h-16 bg-white rounded-2xl mb-4 p-2 shadow-sm flex items-center justify-center overflow-hidden">
+                <img v-if="p.image" :src="p.image" class="w-full h-full object-contain" />
+                <span v-else class="text-2xl">📦</span>
+              </div>
+              <h3 class="text-sm font-black text-zinc-900 mb-1 line-clamp-1 uppercase tracking-tight">{{ p.title }}</h3>
+              <p class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-4">{{ p.price?.toLocaleString() }} P</p>
+              
+              <div class="mt-auto pt-4 border-t border-zinc-200/50 flex items-center justify-between">
+                <span class="text-[9px] font-black text-blue-500 uppercase">매출액 합계</span>
+                <span class="text-xs font-black text-zinc-900">{{ p.revenue?.toLocaleString() }} <span class="text-[8px] text-zinc-300">P</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- Daily Roulette Floating Banner / Entry -->
