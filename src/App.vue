@@ -23,10 +23,55 @@ const fetchMyData = async () => {
   } catch {}
 }
 
+const urlBase64ToUint8Array = (base64String: string) => {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+const subscribeToWebPush = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    try {
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        await navigator.serviceWorker.ready;
+
+        const res = await fetch('/api/push/vapid-public-key');
+        if (!res.ok) return;
+        const { publicKey } = await res.json();
+
+        const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey)
+        });
+
+        await fetch('/api/push/subscribe', {
+            method: 'POST',
+            body: JSON.stringify(subscription),
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${auth.token}`
+            }
+        });
+        console.log('✅ Web Push Subscribe 완료 (딥 백그라운드 알림 가동)');
+    } catch (err) {
+        console.error('Web Push 등록 실패:', err);
+    }
+}
+
 const requestNotifPermission = async () => {
   if (!('Notification' in window)) return
   if (Notification.permission === 'default') {
-    await Notification.requestPermission()
+    const perm = await Notification.requestPermission()
+    if (perm === 'granted' && auth.isAuthenticated) {
+        subscribeToWebPush()
+    }
+  } else if (Notification.permission === 'granted' && auth.isAuthenticated) {
+      subscribeToWebPush()
   }
 }
 
@@ -34,7 +79,7 @@ const triggerWebNotif = (message: string) => {
   if ('Notification' in window && Notification.permission === 'granted') {
     new Notification('🚀 Rocket 함선 통신', {
       body: message,
-      icon: '/favicon.ico'
+      icon: '/pwa-192x192.png'
     })
   }
 }
@@ -60,8 +105,8 @@ const handleLogout = () => {
 }
 
 onMounted(() => {
-  requestNotifPermission()
   if (auth.isAuthenticated) {
+    requestNotifPermission()
     fetchMyData()
     syncInterval = setInterval(fetchMyData, 30000) // 30초마다 동기화
   }

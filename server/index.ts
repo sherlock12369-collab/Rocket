@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import cron from 'node-cron';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import webpush from 'web-push';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,6 +22,18 @@ import Auction from '../models/Auction.ts';
 dotenv.config({ path: '.env.local' });
 if (!process.env.MONGODB_URI) {
     dotenv.config();
+}
+
+// ─── Web Push VAPID Configuration ──────────────────────────────
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    webpush.setVapidDetails(
+        process.env.VAPID_SUBJECT || 'mailto:admin@rocket.local',
+        process.env.VAPID_PUBLIC_KEY,
+        process.env.VAPID_PRIVATE_KEY
+    );
+    console.log('✅ Web Push VAPID 엔진 장착 완료');
+} else {
+    console.warn('⚠️ Web Push VAPID 키가 설정되지 않았습니다.');
 }
 
 const app = express();
@@ -111,16 +124,34 @@ const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction) => {
 // Helper: Add Notification
 const addNotification = async (userId: any, message: string, type: string = 'info') => {
     try {
-        await User.findByIdAndUpdate(userId, {
-            $push: {
-                notifications: {
-                    message,
-                    type,
-                    createdAt: new Date(),
-                    read: false
+        const user = await User.findById(userId);
+        if (!user) return;
+        
+        user.notifications.push({
+            message,
+            type,
+            createdAt: new Date(),
+            read: false
+        } as any);
+        await user.save();
+
+        // Send Web Push if subscriptions exist
+        if (user.pushSubscriptions && user.pushSubscriptions.length > 0) {
+            const payload = JSON.stringify({ title: '🚀 Rocket', body: message, type });
+            for (const sub of user.pushSubscriptions) {
+                try {
+                    await webpush.sendNotification(sub, payload);
+                } catch (pushErr: any) {
+                    if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
+                        // Expired/invalid subscription, remove it
+                        user.pushSubscriptions = user.pushSubscriptions.filter((s: any) => s.endpoint !== sub.endpoint);
+                        await user.save();
+                    } else {
+                        console.error('Web Push Error:', pushErr);
+                    }
                 }
             }
-        });
+        }
     } catch (err) {
         console.error('Notification Error:', err);
     }
@@ -129,7 +160,7 @@ const addNotification = async (userId: any, message: string, type: string = 'inf
 // Helper: Broadcast Notification to All Users
 const broadcastNotification = async (message: string, type: string = 'info') => {
     try {
-        await User.updateMany({}, {
+        const result = await User.updateMany({}, {
             $push: {
                 notifications: {
                     message,
@@ -139,7 +170,28 @@ const broadcastNotification = async (message: string, type: string = 'info') => 
                 }
             }
         });
-        console.log(`📢 [Broadcast] ${message}`);
+        console.log(`📢 [Broadcast] DB Update for ${result.modifiedCount} users: ${message}`);
+
+        // Web Push to all users with subscriptions
+        const usersWithSubs = await User.find({ "pushSubscriptions.0": { "$exists": true } });
+        let sentCount = 0;
+        const payload = JSON.stringify({ title: '🚀 Rocket Broadcast', body: message, type });
+        
+        for (const user of usersWithSubs) {
+            for (const sub of user.pushSubscriptions) {
+                try {
+                    await webpush.sendNotification(sub, payload);
+                    sentCount++;
+                } catch (pushErr: any) {
+                    if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
+                        await User.updateOne({ _id: user._id }, { $pull: { pushSubscriptions: { endpoint: sub.endpoint } } });
+                    }
+                }
+            }
+        }
+        if (sentCount > 0) {
+            console.log(`🚀 [Broadcast] Web Push sent to ${sentCount} devices.`);
+        }
     } catch (err) {
         console.error('Broadcast Notification Error:', err);
     }
@@ -395,6 +447,38 @@ app.delete('/api/me/notifications/clear', authenticateToken, async (req: AuthReq
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
+});
+
+// Push Subscription
+app.post('/api/push/subscribe', authenticateToken, async (req: AuthRequest, res: Response) => {
+    try {
+        const subscription = req.body;
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+
+        // Add if not already exists (checking by endpoint)
+        let exists = false;
+        for (const sub of user.pushSubscriptions) {
+            if (sub.endpoint === subscription.endpoint) {
+                exists = true;
+                break;
+            }
+        }
+        
+        if (!exists) {
+            user.pushSubscriptions.push(subscription);
+            await user.save();
+        }
+        
+        res.status(201).json({ message: 'Web Push 구독이 기기에 등록되었습니다.' });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get VAPID Public Key
+app.get('/api/push/vapid-public-key', (req: Request, res: Response) => {
+    res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });
 });
 
 // Orders: Place Order

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@types/node-cron": "^3.0.11",
+    "@types/web-push": "^3.6.4",
     "bcryptjs": "^3.0.3",
     "chart.js": "^4.5.1",
     "cors": "^2.8.5",
@@ -24,7 +25,8 @@
     "tsx": "^4.19.3",
     "vue": "^3.5.28",
     "vue-chartjs": "^5.3.3",
-    "vue-router": "^5.0.2"
+    "vue-router": "^5.0.2",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.18",
@@ -38,6 +40,7 @@
     "tailwindcss": "^4.1.18",
     "typescript": "~5.9.3",
     "vite": "^7.3.1",
+    "vite-plugin-pwa": "^1.2.0",
     "vue-tsc": "^3.1.5"
   }
 }

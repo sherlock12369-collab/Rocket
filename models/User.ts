@@ -50,7 +50,14 @@ const UserSchema = new mongoose.Schema({
         read: { type: Boolean, default: false },
         createdAt: { type: Date, default: Date.now }
     }],
-    lastRouletteDate: { type: Date }
+    lastRouletteDate: { type: Date },
+    pushSubscriptions: [{
+        endpoint: { type: String, required: true },
+        keys: {
+            p256dh: { type: String, required: true },
+            auth: { type: String, required: true }
+        }
+    }]
 }, { timestamps: true });
 
 export default mongoose.models.User || mongoose.model('User', UserSchema);
